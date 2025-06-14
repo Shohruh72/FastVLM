@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>bayonic</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      background: linear-gradient(135deg, #1a237e 50%, #0d47a1 100%);
+      color: white;
+      margin: 0;
+      padding: 0;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: auto;
+      padding: 20px;
+    }
+
+    .header {
+      text-align: center;
+      margin-bottom: 40px;
+    }
+
+    .header h1 {
+      font-size: 3rem;
+      background: linear-gradient(45deg, #fff, #a8edea);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      text-shadow: 0 4px 20px rgba(255,255,255,0.3);
+    }
+
+    .main-grid {
+      display: flex;
+      gap: 30px;
+      flex-wrap: wrap;
+    }
+
+    .panel {
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 15px;
+      padding: 20px;
+      flex: 1;
+      min-width: 300px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+    }
+
+    .upload-area {
+      border: 2px dashed rgba(255, 255, 255, 0.5);
+      border-radius: 10px;
+      padding: 30px;
+      text-align: center;
+      cursor: pointer;
+      margin-bottom: 20px;
+    }
+
+    .image-preview {
+      display: none;
+      width: 100%;
+      max-height: 300px;
+      object-fit: contain;
+      border-radius: 10px;
+      margin-top: 10px;
+    }
+
+    .control-input, select, textarea {
+      width: 100%;
+      padding: 10px;
+      border-radius: 8px;
+      border: none;
+      margin-bottom: 15px;
+      background: rgba(0, 0, 0, 0.5);
+      color: white;
+    }
+
+    #promptInput {
+      max-width: 95%;
+      display: block;
+      margin-left: auto;
+      margin-right: auto;
+    }
+
+    .btn {
+      padding: 12px 25px;
+      border-radius: 30px;
+      background: linear-gradient(45deg, #4ecdc4, #44a08d);
+      border: none;
+      color: white;
+      font-weight: bold;
+      cursor: pointer;
+    }
+
+    .btn:hover {
+      box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+    }
+
+    .output-area {
+      margin-top: 20px;
+      background: rgba(0, 0, 0, 0.3);
+      border-radius: 10px;
+      padding: 15px;
+      min-height: 100px;
+      font-family: monospace;
+      white-space: pre-wrap;
+    }
+
+    label {
+      font-weight: bold;
+      display: block;
+      margin-bottom: 5px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>BAYONIC VISION</h1>
+    </div>
+
+    <div class="main-grid">
+      <div class="panel">
+        <h2>Image Upload</h2>
+        <input type="file" id="imageInput" accept="image/*" style="display:none;" />
+        <div class="upload-area" id="uploadArea">
+          <p>Click or drag an image here to upload</p>
+        </div>
+        <img id="imagePreview" class="image-preview" alt="Preview"/>
+      </div>
+
+      <div class="panel">
+        <h2>Configuration</h2>
+        <label for="promptInput">Prompt</label>
+        <textarea id="promptInput" class="control-input" rows="3">Describe the image.</textarea>
+
+        <label for="temperatureSlider">Temperature</label>
+        <input type="range" id="temperatureSlider" min="0" max="1" step="0.1" value="0.2" oninput="document.getElementById('tempVal').textContent=this.value">
+        <span id="tempVal">0.2</span>
+
+        <label for="convModeSelect">Conversation Mode</label>
+        <select id="convModeSelect" class="control-input">
+          <option value="default">Default (Qwen 2)</option>
+          <option value="qwen_2">Qwen 2</option>
+          <option value="v0">Vicuna v0</option>
+          <option value="v1">Vicuna v1</option>
+          <option value="llama_2">LLaMA 2</option>
+          <option value="chatml_direct">ChatML Direct</option>
+          <option value="mistral_direct">Mistral Direct (alias)</option>
+        </select>
+
+        <label for="modelPathSelect">Model Variant</label>
+        <select id="modelPathSelect" class="control-input">
+          <option value="./weights/llava-fastvithd_0.5b_stage2">0.5B Stage 2</option>
+          <option value="./weights/llava-fastvithd_0.5b_stage3" selected>0.5B Stage 3</option>
+          <option value="./weights/llava-fastvithd_1.5b_stage2">1.5B Stage 2</option>
+          <option value="./weights/llava-fastvithd_1.5b_stage3">1.5B Stage 3</option>
+          <option value="./weights/llava-fastvithd_7b_stage2">7B Stage 2</option>
+          <option value="./weights/llava-fastvithd_7b_stage3">7B Stage 3</option>
+        </select>
+
+        <button class="btn" id="generateBtn" onclick="generateResponse()">Generate Response</button>
+
+        <div style="margin-top: 20px;">
+          <label>Generated Output:</label>
+          <div class="output-area" id="outputArea">Waiting for input...</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let selectedImage = null;
+
+    document.addEventListener('DOMContentLoaded', () => {
+      const uploadArea = document.getElementById('uploadArea');
+      const imageInput = document.getElementById('imageInput');
+
+      uploadArea.addEventListener('click', () => imageInput.click());
+
+      uploadArea.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        uploadArea.style.background = 'rgba(255,255,255,0.1)';
+      });
+
+      uploadArea.addEventListener('dragleave', () => {
+        uploadArea.style.background = '';
+      });
+
+      uploadArea.addEventListener('drop', (e) => {
+        e.preventDefault();
+        uploadArea.style.background = '';
+        const files = e.dataTransfer.files;
+        if (files.length > 0) handleImage(files[0]);
+      });
+
+      imageInput.addEventListener('change', (e) => {
+        if (e.target.files.length > 0) handleImage(e.target.files[0]);
+      });
+    });
+
+    function handleImage(file) {
+      if (!file.type.startsWith('image/')) {
+        alert('Please select a valid image file.');
+        return;
+      }
+
+      selectedImage = file;
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const preview = document.getElementById('imagePreview');
+        preview.src = e.target.result;
+        preview.style.display = 'block';
+      };
+      reader.readAsDataURL(file);
+    }
+
+    async function generateResponse() {
+      if (!selectedImage) {
+        alert('Please upload an image.');
+        return;
+      }
+
+      const prompt = document.getElementById('promptInput').value;
+      const temperature = document.getElementById('temperatureSlider').value;
+      const convMode = document.getElementById('convModeSelect').value;
+      const modelPath = document.getElementById('modelPathSelect').value;
+      const outputArea = document.getElementById('outputArea');
+
+      outputArea.textContent = "Generating...";
+
+      const formData = new FormData();
+      formData.append('image', selectedImage);
+      formData.append('prompt', prompt);
+      formData.append('temperature', temperature);
+      formData.append('conv_mode', convMode);
+      formData.append('model_path', modelPath);
+
+      try {
+        const res = await fetch('/analyze', {
+          method: 'POST',
+          body: formData
+        });
+
+        const data = await res.json();
+        if (res.ok) {
+          outputArea.textContent = data.output;
+        } else {
+          outputArea.textContent = "Error: " + data.error;
+        }
+      } catch (err) {
+        outputArea.textContent = "Connection error.";
+      }
+    }
+  </script>
+</body>
+</html>
