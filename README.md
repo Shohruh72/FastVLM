@@ -54,4 +54,7 @@ Open http://localhost:5000 → Drop an image → Get instant AI analysis ✨
 * LLaVA - Advanced vision-language understanding
 * Modern UI - Responsive interface that works everywhere
 
+#### Reference
+https://github.com/apple/ml-fastvlm
+
 ## 🔥 Try it now. Star if you like instant AI magic! ⭐️
